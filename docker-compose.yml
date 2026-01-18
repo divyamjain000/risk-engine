@@ -1,7 +1,24 @@
-version: "3.8"
+version: "3.9"
+
 services:
   api:
     build: .
     ports:
       - "8000:8000"
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: postgresql+psycopg2://risk_user:risk_password@postgres:5432/risk_engine
+
+  postgres:
+    image: postgres:15
     restart: always
+    environment:
+      POSTGRES_DB: risk_engine
+      POSTGRES_USER: risk_user
+      POSTGRES_PASSWORD: risk_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

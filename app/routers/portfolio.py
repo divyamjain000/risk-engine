@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 from app.db.models import Position
+from app.services.datalake import write_portfolio_snapshot
 
 router = APIRouter(prefix="/portfolio")
 
@@ -12,18 +13,22 @@ def get_db():
     finally:
         db.close()
 
-@router.get("/")
-def get_portfolio(db: Session = Depends(get_db)):
-    positions = db.query(Position).all()
+def serialize_portfolio(positions):
     return {
         "positions": [
             {
                 "symbol": p.symbol,
                 "quantity": p.quantity,
                 "avg_price": p.avg_price
-            } for p in positions
+            }
+            for p in positions
         ]
     }
+
+@router.get("/")
+def get_portfolio(db: Session = Depends(get_db)):
+    positions = db.query(Position).all()
+    return serialize_portfolio(positions)
 
 @router.post("/position")
 def add_position(
@@ -40,4 +45,10 @@ def add_position(
     db.add(position)
     db.commit()
     db.refresh(position)
+
+    # 🔹 snapshot AFTER state change
+    positions = db.query(Position).all()
+    snapshot = serialize_portfolio(positions)
+    write_portfolio_snapshot(portfolio_id=1, snapshot=snapshot)
+
     return {"status": "ok", "id": position.id}
