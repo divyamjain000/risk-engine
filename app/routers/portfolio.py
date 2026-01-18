@@ -1,13 +1,43 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+from app.db.session import SessionLocal
+from app.db.models import Position
 
-router = APIRouter(prefix="/portfolio", tags=["Portfolio"])
+router = APIRouter(prefix="/portfolio")
 
-@router.get("")
-def get_portfolio():
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+@router.get("/")
+def get_portfolio(db: Session = Depends(get_db)):
+    positions = db.query(Position).all()
     return {
-        "total_capital": 342000,
-        "cash": 92000,
-        "max_drawdown_pct": 12,
-        "current_drawdown_pct": 4.1,
-        "risk_per_trade": 1500
+        "positions": [
+            {
+                "symbol": p.symbol,
+                "quantity": p.quantity,
+                "avg_price": p.avg_price
+            } for p in positions
+        ]
     }
+
+@router.post("/position")
+def add_position(
+    symbol: str,
+    quantity: float,
+    avg_price: float,
+    db: Session = Depends(get_db)
+):
+    position = Position(
+        symbol=symbol,
+        quantity=quantity,
+        avg_price=avg_price
+    )
+    db.add(position)
+    db.commit()
+    db.refresh(position)
+    return {"status": "ok", "id": position.id}
