@@ -5,3 +5,5 @@ alembic
 psycopg2-binary
 alembic
 boto3
+growwapi
+pyotp
