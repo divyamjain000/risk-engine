@@ -3,11 +3,18 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.py[cod]
+.Python
+*.egg-info/
+pip-wheel-metadata/
+build/
+dist/
 
 # Virtual environments
 .venv/
 venv/
 env/
+.python-version
 
 # OS files
 .DS_Store
@@ -15,6 +22,27 @@ env/
 # Editor
 .vscode/
 .idea/
+.history/
 
 # Secrets
 .env
+.env.*
+
+# Tests & coverage
+.pytest_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Linters & tools
+.ruff_cache/
+
+# Logs
+*.log
+
+# Docker Compose overrides (local-only)
+docker-compose.override.yml

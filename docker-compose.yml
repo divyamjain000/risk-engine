@@ -9,6 +9,10 @@ services:
       - postgres
     environment:
       DATABASE_URL: postgresql+psycopg2://risk_user:risk_password@postgres:5432/risk_engine
+      AWS_REGION: ap-south-1
+      AWS_PROFILE: default   # change if you use a named profile
+    volumes:
+      - ~/.aws:/root/.aws:ro
 
   postgres:
     image: postgres:15

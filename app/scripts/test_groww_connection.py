@@ -10,10 +10,13 @@ def main():
     groww = GrowwAdapter(token)
 
     print("\nFetching holdings...")
-    print(json.dumps(groww.fetch_holdings(), indent=2))
+    print(json.dumps(groww.get_holdings(), indent=2))
 
     print("\nFetching positions...")
-    print(json.dumps(groww.fetch_positions(), indent=2))
+    print(json.dumps(groww.get_positions(), indent=2))
+
+    print("\nFetching margin details...")
+    print(json.dumps(groww.get_available_margin_details(), indent=2))
 
 if __name__ == "__main__":
     main()
