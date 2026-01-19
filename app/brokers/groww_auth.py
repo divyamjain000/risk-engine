@@ -10,14 +10,14 @@ def _load_groww_secrets():
     resp = client.get_secret_value(SecretId=SECRET_NAME)
     return json.loads(resp["SecretString"])
 
-def get_access_token_via_api_key() -> str:
+def get_access_token() -> str:
     secrets = _load_groww_secrets()
 
     api_key = secrets.get("GROWW_API_KEY")
     api_secret = secrets.get("GROWW_API_SECRET")
 
     if not api_key or not api_secret:
-        raise RuntimeError("Groww credentials missing in Secrets Manager")
+        raise RuntimeError("Missing GROWW_API_KEY or GROWW_API_SECRET")
 
     return GrowwAPI.get_access_token(
         api_key=api_key,
