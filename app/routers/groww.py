@@ -1,6 +1,7 @@
 from typing import List, Optional, Any
+import logging
 
-from fastapi import APIRouter, Body, Query, Depends
+from fastapi import APIRouter, Body, Query, Depends, HTTPException
 import numpy as np
 import pandas as pd
 from sqlalchemy.orm import Session
@@ -10,8 +11,11 @@ from app.brokers.groww_auth import get_access_token
 from app.db.models import Instrument
 from app.db.session import SessionLocal
 from app.schemas.groww import PlaceOrderRequest, ModifyOrderRequest, OrderMarginRequest
+from app.services.holdings_job import upsert_today_holdings
+from app.services.instrument_job import replace_instruments
 
 router = APIRouter(prefix="/groww", tags=["Groww"])
+logger = logging.getLogger(__name__)
 
 
 def get_db():
@@ -206,3 +210,35 @@ def get_available_margin_details():
 @router.post("/margin/orders")
 def get_order_margin_details(payload: OrderMarginRequest = Body(...)):
     return _client().get_order_margin_details(segment=payload.segment, orders=payload.orders)
+
+
+# Manual job triggers
+@router.post("/jobs/{job_name}")
+def trigger_job(job_name: str):
+    """Manually trigger a cron job by name. Available jobs: holdings, instruments."""
+    jobs = {
+        "holdings": upsert_today_holdings,
+        "instruments": replace_instruments,
+    }
+    
+    if job_name not in jobs:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown job: {job_name}. Available: {', '.join(jobs.keys())}"
+        )
+    
+    try:
+        job_func = jobs[job_name]
+        result = job_func()
+        logger.info(f"Job {job_name} executed successfully, result: {result}")
+        return {
+            "job": job_name,
+            "status": "success",
+            "result": result
+        }
+    except Exception as e:
+        logger.error(f"Job {job_name} failed: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Job {job_name} failed: {str(e)}"
+        )

@@ -19,10 +19,8 @@ jobs:
       - name: Deploy to EC2 using SSM
         run: |
           aws ssm send-command \
-            --region ap-south-1 \
             --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy risk-engine" \
-            --parameters '{"commands":["bash /home/ubuntu/deploy.sh"]}' \
+            --parameters commands=["bash /home/ubuntu/deploy.sh"] \
             --timeout-seconds 600
-          echo "Deployment command sent to EC2 instance."
