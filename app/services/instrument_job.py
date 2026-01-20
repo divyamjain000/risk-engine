@@ -67,30 +67,41 @@ def replace_instruments() -> int:
         return 0
 
     session: Session = SessionLocal()
-    inserted = 0
     try:
         if not inspect(session.get_bind()).has_table(Instrument.__tablename__):
             return 0
+        
+        # Delete all existing records first and commit
         session.execute(delete(Instrument))
-        for item in items:
-            session.add(
-                Instrument(
-                    symbol=item.get("symbol"),
-                    exchange=item.get("exchange"),
-                    instrument_type=item.get("instrument_type"),
-                    name=item.get("name"),
-                    exchange_token=item.get("exchange_token"),
-                    groww_symbol=item.get("groww_symbol"),
-                )
-            )
-            inserted += 1
         session.commit()
+        
+        # Deduplicate items by symbol (keep last occurrence)
+        seen = {}
+        for item in items:
+            symbol = item.get("symbol")
+            if symbol:
+                seen[symbol] = item
+        
+        # Bulk insert deduplicated instruments
+        instruments = [
+            Instrument(
+                symbol=item.get("symbol"),
+                exchange=item.get("exchange"),
+                instrument_type=item.get("instrument_type"),
+                name=item.get("name"),
+                exchange_token=item.get("exchange_token"),
+                groww_symbol=item.get("groww_symbol"),
+            )
+            for item in seen.values()
+        ]
+        session.bulk_save_objects(instruments)
+        session.commit()
+        return len(instruments)
     except Exception:
         session.rollback()
         raise
     finally:
         session.close()
-    return inserted
 
 
 def get_nse_bse_derivative_symbols() -> list[str]:
