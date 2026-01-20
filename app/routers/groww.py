@@ -6,6 +6,8 @@ import pandas as pd
 
 from app.brokers.groww_adapter import GrowwAdapter
 from app.brokers.groww_auth import get_access_token
+from app.db.models import Instrument
+from app.db.session import SessionLocal
 from app.schemas.groww import PlaceOrderRequest, ModifyOrderRequest, OrderMarginRequest
 
 router = APIRouter(prefix="/groww", tags=["Groww"])
@@ -34,10 +36,22 @@ def get_positions(segment: Optional[str] = Query(None)):
 # Instruments and quotes
 @router.get("/instruments")
 def get_instruments():
-    data = _client().get_instruments()
-    if isinstance(data, pd.DataFrame):
-        return _sanitize_dataframe(data)
-    return data
+    session = SessionLocal()
+    try:
+        instruments = session.query(Instrument).all()
+        return [
+            {
+                "symbol": inst.symbol,
+                "exchange": inst.exchange,
+                "instrument_type": inst.instrument_type,
+                "name": inst.name,
+                "exchange_token": inst.exchange_token,
+                "groww_symbol": inst.groww_symbol,
+            }
+            for inst in instruments
+        ]
+    finally:
+        session.close()
 
 
 @router.get("/quote")
