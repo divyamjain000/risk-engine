@@ -1,8 +1,9 @@
 from typing import List, Optional, Any
 
-from fastapi import APIRouter, Body, Query
+from fastapi import APIRouter, Body, Query, Depends
 import numpy as np
 import pandas as pd
+from sqlalchemy.orm import Session
 
 from app.brokers.groww_adapter import GrowwAdapter
 from app.brokers.groww_auth import get_access_token
@@ -11,6 +12,14 @@ from app.db.session import SessionLocal
 from app.schemas.groww import PlaceOrderRequest, ModifyOrderRequest, OrderMarginRequest
 
 router = APIRouter(prefix="/groww", tags=["Groww"])
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 def _client() -> GrowwAdapter:
@@ -35,23 +44,19 @@ def get_positions(segment: Optional[str] = Query(None)):
 
 # Instruments and quotes
 @router.get("/instruments")
-def get_instruments():
-    session = SessionLocal()
-    try:
-        instruments = session.query(Instrument).all()
-        return [
-            {
-                "symbol": inst.symbol,
-                "exchange": inst.exchange,
-                "instrument_type": inst.instrument_type,
-                "name": inst.name,
-                "exchange_token": inst.exchange_token,
-                "groww_symbol": inst.groww_symbol,
-            }
-            for inst in instruments
-        ]
-    finally:
-        session.close()
+def get_instruments(db: Session = Depends(get_db)):
+    instruments = db.query(Instrument).all()
+    return [
+        {
+            "symbol": inst.symbol,
+            "exchange": inst.exchange,
+            "instrument_type": inst.instrument_type,
+            "name": inst.name,
+            "exchange_token": inst.exchange_token,
+            "groww_symbol": inst.groww_symbol,
+        }
+        for inst in instruments
+    ]
 
 
 @router.get("/quote")

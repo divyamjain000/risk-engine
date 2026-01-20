@@ -7,6 +7,33 @@ from fastapi.testclient import TestClient
 
 import app.main as main_module
 from app.routers import groww as groww_router
+from app.db import session as db_session_module
+
+
+class MockInstrument:
+    def __init__(self, symbol, exchange, instrument_type, name, exchange_token, groww_symbol):
+        self.symbol = symbol
+        self.exchange = exchange
+        self.instrument_type = instrument_type
+        self.name = name
+        self.exchange_token = exchange_token
+        self.groww_symbol = groww_symbol
+
+
+class MockQuery:
+    def all(self):
+        return [
+            MockInstrument("FOO", "NSE", "EQ", None, "123", "NSE-FOO"),
+            MockInstrument("BAR", "BSE", "EQ", "Bar Corp", "456", "BSE-BAR"),
+        ]
+
+
+class MockSession:
+    def query(self, model):
+        return MockQuery()
+    
+    def close(self):
+        pass
 
 
 class StubClient:
@@ -41,8 +68,19 @@ def disable_scheduler(monkeypatch):
 def client(monkeypatch):
     # Patch groww router client factory to use stub
     monkeypatch.setattr(groww_router, "_client", lambda: StubClient())
+    
     from app.main import app
-    return TestClient(app)
+    
+    # Override database dependency to avoid real DB connection
+    def override_get_db():
+        yield MockSession()
+    
+    app.dependency_overrides[groww_router.get_db] = override_get_db
+    
+    yield TestClient(app)
+    
+    # Cleanup
+    app.dependency_overrides.clear()
 
 
 def test_holdings_ok(client: TestClient):
@@ -65,11 +103,15 @@ def test_instruments_dataframe_sanitized(client: TestClient):
     assert resp.status_code == 200
     items = resp.json()
     assert isinstance(items, list)
-    # NaN should become None, inf should become None
+    assert len(items) == 2
+    # Should return instruments from mocked database
     first = items[0]
-    second = items[1]
+    assert first["symbol"] == "FOO"
+    assert first["exchange"] == "NSE"
     assert first.get("name") is None
-    assert second.get("strike_price") is None
+    second = items[1]
+    assert second["symbol"] == "BAR"
+    assert second["name"] == "Bar Corp"
 
 
 def test_stale_instruments_endpoint_removed(client: TestClient):
