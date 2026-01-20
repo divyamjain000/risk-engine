@@ -1,12 +1,10 @@
 from fastapi import FastAPI
 
-from app.routers import portfolio
 from app.routers import groww as groww_router
 from app.scheduler import start_scheduler as _start_scheduler, stop_scheduler as _stop_scheduler
 
 app = FastAPI(title="Risk Engine API")
 
-app.include_router(portfolio.router)
 app.include_router(groww_router.router)
 
 @app.get("/")

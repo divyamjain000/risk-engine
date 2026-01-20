@@ -36,6 +36,14 @@ def _sanitize_dataframe(df: pd.DataFrame) -> list[dict[str, Any]]:
     return clean.to_dict(orient="records")
 
 # Portfolio
+@router.get("/portfolio")
+def get_portfolio():
+    return {
+        "holdings": _client().get_holdings(),
+        "positions": _client().get_positions_for_user(),
+    }
+
+
 @router.get("/holdings")
 def get_holdings():
     return _client().get_holdings()
