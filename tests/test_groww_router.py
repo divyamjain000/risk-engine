@@ -11,8 +11,8 @@ from app.db import session as db_session_module
 
 
 class MockInstrument:
-    def __init__(self, symbol, exchange, instrument_type, name, exchange_token, groww_symbol):
-        self.symbol = symbol
+    def __init__(self, trading_symbol, exchange, instrument_type, name, exchange_token, groww_symbol):
+        self.trading_symbol = trading_symbol
         self.exchange = exchange
         self.instrument_type = instrument_type
         self.name = name
@@ -26,6 +26,14 @@ class MockQuery:
             MockInstrument("FOO", "NSE", "EQ", None, "123", "NSE-FOO"),
             MockInstrument("BAR", "BSE", "EQ", "Bar Corp", "456", "BSE-BAR"),
         ]
+    
+    def filter(self, *args):
+        # Simple mock - just return self for chaining
+        return self
+    
+    def limit(self, n):
+        # Simple mock - just return self for chaining
+        return self
 
 
 class MockSession:
@@ -70,12 +78,15 @@ def client(monkeypatch):
     monkeypatch.setattr(groww_router, "_client", lambda: StubClient())
     
     from app.main import app
+    from app.routers import instruments as instruments_router
     
     # Override database dependency to avoid real DB connection
     def override_get_db():
         yield MockSession()
     
     app.dependency_overrides[groww_router.get_db] = override_get_db
+    # Also override instruments router to avoid DB connection
+    app.dependency_overrides[instruments_router.get_db] = override_get_db
     
     yield TestClient(app)
     
@@ -106,14 +117,17 @@ def test_instruments_dataframe_sanitized(client: TestClient):
     assert len(items) == 2
     # Should return instruments from mocked database
     first = items[0]
-    assert first["symbol"] == "FOO"
+    assert first["trading_symbol"] == "FOO"
     assert first["exchange"] == "NSE"
     assert first.get("name") is None
     second = items[1]
-    assert second["symbol"] == "BAR"
+    assert second["trading_symbol"] == "BAR"
     assert second["name"] == "Bar Corp"
 
 
-def test_stale_instruments_endpoint_removed(client: TestClient):
+def test_instruments_endpoint_exists(client: TestClient):
+    """Test that the new instruments endpoint exists and returns data."""
     resp = client.get("/instruments/")
-    assert resp.status_code == 404
+    # Should return 200 with list of instruments (might be empty if no data seeded)
+    assert resp.status_code == 200
+    assert isinstance(resp.json(), list)
