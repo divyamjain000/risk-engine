@@ -60,7 +60,7 @@ def get_instruments(db: Session = Depends(get_db)):
     instruments = db.query(Instrument).all()
     return [
         {
-            "symbol": inst.symbol,
+            "trading_symbol": inst.trading_symbol,
             "exchange": inst.exchange,
             "instrument_type": inst.instrument_type,
             "name": inst.name,

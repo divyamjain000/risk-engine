@@ -18,17 +18,25 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Drop existing primary key on id and related indexes
-    with op.batch_alter_table("holdings_daily") as batch:
-        batch.drop_constraint("holdings_daily_pkey", type_="primary")
-        # drop unique constraint if present
-        batch.drop_constraint("uq_holdings_daily_symbol_date", type_="unique")
-        # drop surrogate id column
-        batch.drop_column("id")
-        # add composite primary key
-        batch.create_primary_key("pk_holdings_daily", ["symbol", "as_of_date"])
-    # Recreate index on as_of_date if missing
     bind = op.get_bind()
+    dialect_name = bind.dialect.name
+    
+    # SQLite requires batch mode for schema changes
+    if dialect_name == "sqlite":
+        with op.batch_alter_table("holdings_daily", schema=None) as batch_op:
+            batch_op.drop_column("id")
+    else:
+        # PostgreSQL can do it directly
+        with op.batch_alter_table("holdings_daily") as batch:
+            batch.drop_constraint("holdings_daily_pkey", type_="primary")
+            try:
+                batch.drop_constraint("uq_holdings_daily_symbol_date", type_="unique")
+            except:
+                pass  # Constraint might not exist
+            batch.drop_column("id")
+            batch.create_primary_key("pk_holdings_daily", ["symbol", "as_of_date"])
+    
+    # Recreate index on as_of_date if missing
     insp = sa.inspect(bind)
     existing_idx = {idx["name"] for idx in insp.get_indexes("holdings_daily")}
     if "ix_holdings_daily_as_of_date" not in existing_idx:
@@ -36,10 +44,23 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    bind = op.get_bind()
+    dialect_name = bind.dialect.name
+    
     # Revert to surrogate id primary key with unique constraint
-    with op.batch_alter_table("holdings_daily") as batch:
-        batch.drop_constraint("pk_holdings_daily", type_="primary")
-        batch.add_column(sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True))
-        batch.create_primary_key("holdings_daily_pkey", ["id"])
-        batch.create_unique_constraint("uq_holdings_daily_symbol_date", ["symbol", "as_of_date"])
-    op.drop_index("ix_holdings_daily_as_of_date", table_name="holdings_daily")
+    if dialect_name == "sqlite":
+        # SQLite: recreate table with id column
+        with op.batch_alter_table("holdings_daily", schema=None) as batch_op:
+            batch_op.add_column(sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True))
+    else:
+        # PostgreSQL
+        with op.batch_alter_table("holdings_daily") as batch:
+            batch.drop_constraint("pk_holdings_daily", type_="primary")
+            batch.add_column(sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True))
+            batch.create_primary_key("holdings_daily_pkey", ["id"])
+            batch.create_unique_constraint("uq_holdings_daily_symbol_date", ["symbol", "as_of_date"])
+    
+    try:
+        op.drop_index("ix_holdings_daily_as_of_date", table_name="holdings_daily")
+    except:
+        pass  # Index might not exist

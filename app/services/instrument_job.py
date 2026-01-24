@@ -45,17 +45,30 @@ def fetch_instruments() -> List[Dict[str, Any]]:
     for entry in data:
         if not isinstance(entry, dict):
             continue
-        symbol = _extract_field(entry, ["symbol", "tradingSymbol", "trading_symbol", "tradingsymbol"])
-        if not symbol:
+        trading_symbol = _extract_field(entry, ["trading_symbol", "tradingSymbol", "symbol", "tradingsymbol"])
+        if not trading_symbol:
             continue
         normalized.append(
             {
-                "symbol": symbol,
+                "trading_symbol": trading_symbol,
                 "exchange": _extract_field(entry, ["exchange"]),
                 "instrument_type": _extract_field(entry, ["instrument_type", "instrumentType"]),
                 "name": _extract_field(entry, ["name", "description", "instrument_name"]),
                 "exchange_token": _extract_field(entry, ["exchange_token", "exchangeToken", "token", "exchangeTokenString"]),
                 "groww_symbol": _extract_field(entry, ["groww_symbol", "growwInstrumentId", "groww_id"]),
+                "segment": _extract_field(entry, ["segment"]),
+                "series": _extract_field(entry, ["series"]),
+                "isin": _extract_field(entry, ["isin"]),
+                "underlying_symbol": _extract_field(entry, ["underlying_symbol", "underlyingSymbol"]),
+                "underlying_exchange_token": _extract_field(entry, ["underlying_exchange_token", "underlyingExchangeToken"]),
+                "expiry_date": _extract_field(entry, ["expiry_date", "expiryDate", "expiry"]),
+                "strike_price": _extract_field(entry, ["strike_price", "strikePrice", "strike"]),
+                "lot_size": _extract_field(entry, ["lot_size", "lotSize"]),
+                "tick_size": _extract_field(entry, ["tick_size", "tickSize"]),
+                "freeze_quantity": _extract_field(entry, ["freeze_quantity", "freezeQuantity"]),
+                "is_reserved": _extract_field(entry, ["is_reserved", "isReserved"]),
+                "buy_allowed": _extract_field(entry, ["buy_allowed", "buyAllowed"]),
+                "sell_allowed": _extract_field(entry, ["sell_allowed", "sellAllowed"]),
             }
         )
     return normalized
@@ -75,22 +88,35 @@ def replace_instruments() -> int:
         session.execute(delete(Instrument))
         session.commit()
         
-        # Deduplicate items by symbol (keep last occurrence)
+        # Deduplicate items by trading_symbol (keep last occurrence)
         seen = {}
         for item in items:
-            symbol = item.get("symbol")
-            if symbol:
-                seen[symbol] = item
+            trading_symbol = item.get("trading_symbol")
+            if trading_symbol:
+                seen[trading_symbol] = item
         
         # Bulk insert deduplicated instruments
         instruments = [
             Instrument(
-                symbol=item.get("symbol"),
+                trading_symbol=item.get("trading_symbol"),
                 exchange=item.get("exchange"),
                 instrument_type=item.get("instrument_type"),
                 name=item.get("name"),
                 exchange_token=item.get("exchange_token"),
                 groww_symbol=item.get("groww_symbol"),
+                segment=item.get("segment"),
+                series=item.get("series"),
+                isin=item.get("isin"),
+                underlying_symbol=item.get("underlying_symbol"),
+                underlying_exchange_token=item.get("underlying_exchange_token"),
+                expiry_date=item.get("expiry_date"),
+                strike_price=item.get("strike_price"),
+                lot_size=item.get("lot_size"),
+                tick_size=item.get("tick_size"),
+                freeze_quantity=item.get("freeze_quantity"),
+                is_reserved=item.get("is_reserved"),
+                buy_allowed=item.get("buy_allowed"),
+                sell_allowed=item.get("sell_allowed"),
             )
             for item in seen.values()
         ]
@@ -109,7 +135,7 @@ def get_nse_bse_derivative_symbols() -> list[str]:
     session: Session = SessionLocal()
     try:
         rows = (
-            session.query(Instrument.symbol)
+            session.query(Instrument.trading_symbol)
             .filter(Instrument.exchange.in_(["NSE", "BSE"]))
             .filter(Instrument.instrument_type.in_(DERIVATIVE_TYPES))
             .all()
