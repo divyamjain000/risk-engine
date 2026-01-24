@@ -2,9 +2,13 @@ version: "3.9"
 
 services:
   api:
-    build: .
-    ports:
-      - "8000:8000"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: risk-api
+    restart: always
+    expose:
+      - "8000"
     depends_on:
       - postgres
     environment:
@@ -13,8 +17,18 @@ services:
     volumes:
       - ~/.aws:/root/.aws:ro
 
+  ui:
+    build: ./ui
+    container_name: risk-ui
+    restart: always
+    expose:
+      - "3000"
+    environment:
+      NEXT_PUBLIC_API_BASE: /api
+
   postgres:
     image: postgres:15
+    container_name: risk-postgres
     restart: always
     environment:
       POSTGRES_DB: risk_engine
@@ -23,5 +37,16 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  nginx:
+    image: nginx:alpine
+    container_name: risk-nginx
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/site.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - api
+      - ui
 volumes:
   pgdata:

@@ -27,6 +27,7 @@ env/
 # Secrets
 .env
 .env.*
+*secrets*.json
 
 # Tests & coverage
 .pytest_cache/
@@ -44,5 +45,13 @@ htmlcov/
 # Logs
 *.log
 
-# Docker Compose overrides (local-only)
+# Docker
 docker-compose.override.yml
+
+# Next.js / UI
+ui/node_modules/
+ui/.next/
+ui/out/
+
+# Nginx logs
+nginx/*.log
